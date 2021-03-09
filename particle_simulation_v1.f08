@@ -34,14 +34,15 @@ program particle_simulation
   real, dimension(3) :: length_of_area, length_of_cells
   real :: delta_t, time_mass_factor, epsilon_value, r_min, r_cut, F_rcut, &
           dr_max_tolerable, min_length_of_cell
-  integer :: parameter_file_unit, environment_file_unit, output_file_unit
+  integer :: particle_file_unit, environment_file_unit, output_file_unit
   integer :: time_step, max_time_step
+  integer :: i
   logical :: displacement_flag
 
 
   ! get all the files from the command link
-  call get_command_arguments(parameter_file_unit, &
-                             environment_file_unit, &
+  call get_command_arguments(environment_file_unit, &
+                             particle_file_unit, &
                              output_file_unit)
 
   ! read fixed values from environment_file
@@ -52,7 +53,7 @@ program particle_simulation
 
   ! read particle file and file particle_array with particles and their id,
   ! mass, location, and initial velocity
-  particle_array = initialize_particle_array(parameter_file_unit)
+  particle_array = initialize_particle_array(particle_file_unit)
 
   ! create linked_list space, and ill it with the particle_numbers
   linked_list = initialze_linked_list(environment_file_unit, particle_array)
@@ -64,6 +65,10 @@ program particle_simulation
   ! compute the initial force for all particles in particle list by using
   ! their neighborlist
   call compute_forces(particle_array)
+
+  do i = 1, 3
+    write(unit=output_file_unit, rec=i) length_of_area(i)
+  end do
 
   ! start loop for time integration
   time_integration: do time_step = 1, max_time_step
@@ -87,7 +92,8 @@ program particle_simulation
 
     ! if it is time to write data, write data
     if (write_data_now(time_step)) then
-      call write_data(output_file_unit, particle_array)
+      call write_data(output_file_unit, particle_array, &
+                      pack(linked_list, .true.))
     end if
 
   end do time_integration
@@ -97,11 +103,11 @@ program particle_simulation
 
 contains
 
-  subroutine get_command_arguments(parameter_file_unit, &
+  subroutine get_command_arguments(environment_file_unit, &
                                    particle_file_unit, &
                                    output_file_unit)
      use iso_fortran_env, only: error_unit
-     integer, intent(out) :: parameter_file_unit
+     integer, intent(out) :: environment_file_unit
      integer, intent(out) :: particle_file_unit
      integer, intent(out) :: output_file_unit
 
@@ -125,9 +131,9 @@ contains
         call get_command_argument(1, name_of_parameter_file)
         ! Check file for existence
         !call check_file(name_of_parameter_file)
-        open(newunit = parameter_file_unit, file = name_of_parameter_file, &
+        open(newunit = environment_file_unit, file = name_of_parameter_file, &
              status = "old", action = "read", access = "sequential", &
-             form = 'formatted', iostat = stat)
+             iostat = stat)
         if (stat /= 0) then
           call stop_program("[ERROR] Could not open parameter file.", stat)
         end if
@@ -137,7 +143,7 @@ contains
         !call check_file(name_of_particle_file)
         open(newunit = particle_file_unit, file = name_of_particle_file, &
              status = "old", action = "read", access = "sequential", &
-             form = 'formatted', iostat = stat)
+             iostat = stat)
         if (stat /= 0) then
           call stop_program("[ERROR] Could not open particle file.", stat)
         end if
@@ -164,6 +170,7 @@ contains
 
     write_now = .false.
     if (i == 1 .or. i == max_time_step .or. i == write_step) then
+      write(*,*) "[INFO] write now, ", i
       write_step = write_step + 10
       write_now = .true.
     else
@@ -191,6 +198,7 @@ contains
      read(environment_file_unit, *) particle_radius, epsilon_value, particle_mass
      read(environment_file_unit, *) r_cut_factor
      read(environment_file_unit, *) length_of_area
+     write(*,*) length_of_area
      read(environment_file_unit, *) length_of_cells
      read(environment_file_unit, *) delta_t
      read(environment_file_unit, *) max_time_step
@@ -219,10 +227,8 @@ contains
     real, dimension(3) :: location, velocity
 
     ! read number of particles
-    write(*,*) "PONG!"
-    read(particle_file_unit, *) i!nb_of_particles
-    write(*,*) i!nb_of_particles
-    stop
+    read(particle_file_unit, *) nb_of_particles
+    write(*,*) nb_of_particles
 
     ! allocate particle_array
     allocate(particle_array(nb_of_particles), stat = istat)
@@ -255,6 +261,7 @@ contains
 
     !
     nc = nint(length_of_area / length_of_cells)
+    write(*,*) 'Number of cells ', nc
 
     ! allocate linked_list
     allocate(cell_space(nc(1), nc(2), nc(3)), stat = istat)
@@ -779,42 +786,53 @@ contains
 
    end subroutine compute_velocities
 
-   subroutine write_data(ofu, p)
+   subroutine write_data(ofu, p_array, linked_cells)
      integer, intent(in) :: ofu ! output_file_unit
-     type(particle_type), dimension(:), intent(in) :: p !particle_array
+     type(particle_type), dimension(:), intent(in) :: p_array !particle_array
+     type(cell_type), dimension(:), intent(in) :: linked_cells
 
-     integer, save :: counter = 1, number_of_entries = 0
+     type(particle_number), pointer :: p
+     integer, save :: counter = 4, number_of_entries = 0
      integer :: d
-     integer :: i, j
+     integer :: ci, j
+
+     write(*,*) "Particles: ", &
+                get_number_of_particles_in_area(linked_cells)
 
      ! number of entries
      number_of_entries = number_of_entries + 1
-     write(unit=ofu, rec=1) number_of_entries
+     write(unit=ofu, rec=4) number_of_entries
 
      counter = counter + 1
-     d = 0
-     do i = 1, size(p)
-       ! write particle id
-       d = d + 1
-       write(unit=ofu, rec=(counter + d)) p(i)%id
+     d = counter
+     all_cells: do ci = 1, size(linked_cells)
 
-       ! write location of particle
-       do j = 1, 3
-          d = d + 1
-          write(unit=ofu, rec=(counter + d)) p(i)%location(j)
-       end do
+       p => linked_cells(ci)%first_particle
+       this_cell: do while(associated(p))
+         ! write particle id
+         d = d + 1
+         write(unit=ofu, rec=d) p_array(p%i)%id
 
-       ! write velocity of particle
-       do j = 1, 3
-          d = d + 1
-          write(unit=ofu, rec=(counter + d)) p(i)%velocity(j)
-       end do
-     end do
+         ! write location of particle
+         do j = 1, 3
+           d = d + 1
+           write(unit=ofu, rec=d) p_array(p%i)%location(j)
+         end do
+
+         ! write velocity of particle
+         do j = 1, 3
+           d = d + 1
+           write(unit=ofu, rec=d) p_array(p%i)%velocity(j)
+         end do
+
+         p => p%next_particle
+       end do this_cell
+     end do all_cells
 
      ! write number of data per time entry
-     write(unit=ofu, rec=counter) d
+     write(unit=ofu, rec=counter) d - counter
 
-     counter = counter + d
+     counter = d
 
    end subroutine write_data
 
@@ -893,5 +911,22 @@ contains
       stop
 
    end subroutine stop_program
+
+   function get_number_of_particles_in_area(cell_space) result(i)
+     type(cell_type), dimension(:), intent(in) :: cell_space
+     integer :: i
+
+     type(particle_number), pointer :: p
+     integer :: ci
+
+     i = 0
+     do ci = 1, size(cell_space)
+       p => cell_space(ci)%first_particle
+       do while(associated(p))
+         i = i + 1
+         p => p%next_particle
+       end do
+     end do
+   end function get_number_of_particles_in_area
 
 end program particle_simulation

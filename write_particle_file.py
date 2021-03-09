@@ -1,6 +1,6 @@
 import argparse
 import numpy as np
-from math import sqrt, log, prod
+from math import sqrt, log
 
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
@@ -29,8 +29,8 @@ args = vars(ap.parse_args())
 # compute r_min, the position of the minimum of the Lennard-Jones potential
 r_min = args["radius"] * 2.0**(1.0/6.0)
 start_point = np.array(args["start_point"])
-velocity = np.array(args["velocity"])
-total_particles = prod(args["nb_of_particles"])
+general_velocity = np.array(args["velocity"])
+total_particles = np.prod(args["nb_of_particles"])
 vt = args["thermal_noise"]
 
 def thermal_velocity_noise():
@@ -41,6 +41,7 @@ def thermal_velocity_noise():
             break
 
     r = sqrt(-2.0 * log(r)/r)
+    print(r)
     return thermal_noise * r
 
 # open output file and write to it
@@ -56,7 +57,7 @@ with open(args["output"], "w") as file:
 
                 id += 1
                 position = start_point + (r_min * np.array([x, y, z]))
-                velocity = velocity + vt * thermal_velocity_noise()
+                velocity = general_velocity + vt * thermal_velocity_noise()
 
                 file.write(str(id) + " ")
                 np.savetxt(file, position, newline=" ", fmt ='%.4f')
