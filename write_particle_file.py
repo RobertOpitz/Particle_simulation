@@ -11,7 +11,7 @@ ap.add_argument("-o", "--output", required = True,
 ap.add_argument("-n", "--nb_of_particles", type = int, required = True,
                 nargs = 3,
                 help = "number of particles in x, y, z direction")
-ap.add_argument("-s", "--start_point", type = float, default = [0.0, 0.0, 0.0],
+ap.add_argument("-s", "--start_point", type = float, required = True,
                 nargs = 3,
                 help = "center of particle mass in x, y, z direction")
 ap.add_argument("-e", "--epsilon", type = float, default = 1.0,
@@ -24,14 +24,23 @@ ap.add_argument("-v", "--velocity", type = float, default = [0.0, 0.0, 0.0],
                 nargs = 3, help = "General velocity of all particles")
 ap.add_argument("-vt", "--thermal_noise", type = float, default = 0.0,
                 help = "Amount of thermal noise of particles, i.e. temperature")
+ap.add_argument("-a", "--append", action = "store_true",
+                help = "append to existing data file")
 args = vars(ap.parse_args())
 
 # compute r_min, the position of the minimum of the Lennard-Jones potential
 r_min = args["radius"] * 2.0**(1.0/6.0)
-start_point = np.array(args["start_point"])
-general_velocity = np.array(args["velocity"])
+nb_of_particles = np.array(args["nb_of_particles"])
+start_point = r_min * (np.array(args["start_point"]) - 0.5 * (nb_of_particles - 1.0))
+print(start_point)
 total_particles = np.prod(args["nb_of_particles"])
+general_velocity = np.array(args["velocity"])
 vt = args["thermal_noise"]
+
+if args["append"]:
+    file_access = "a"
+else:
+    file_access = "x"
 
 def thermal_velocity_noise():
     while True:
@@ -41,14 +50,13 @@ def thermal_velocity_noise():
             break
 
     r = sqrt(-2.0 * log(r)/r)
-    print(r)
     return thermal_noise * r
 
 # open output file and write to it
-with open(args["output"], "w") as file:
+with open(args["output"], file_access) as file:
 
-    file.write(str(total_particles))
-    file.write("\n")
+    #file.write(str(total_particles))
+    #file.write("\n")
 
     id = 0
     for z in range(args["nb_of_particles"][2]):
