@@ -345,15 +345,15 @@ contains
 
     n = size(p)
     do i = 1, n - 1
-      particle_array(i)%displacement = zero
-      particle_array(i)%nb_of_neighbors = 0
+      p(i)%displacement = zero
+      p(i)%nb_of_neighbors = 0
       do j = i + 1, n
         call add_neighbor_particle(p(i), p(j), j)
       end do
     end do
 
-    particle_array(n)%displacement = zero
-    particle_array(n)%nb_of_neighbors = 0
+    p(n)%displacement = zero
+    p(n)%nb_of_neighbors = 0
 
     !call collect_neighbors_within_cell(pack(linked_list, .TRUE.), &
     !                                   particle_array)
@@ -606,8 +606,6 @@ contains
 
         p1%nb_of_neighbors = p1%nb_of_neighbors + 1
 
-        !if (.not. allocated(p1%neighbor_list) .and. p1%nb_of_neighbors == 1) then
-        !  allocate(p1%neighbor_list(1))
         if (p1%nb_of_neighbors > size(p1%neighbor_list)) then
            ! increase size of neighbor_list by one
            call increase_neighbor_list_size(p1%neighbor_list)
@@ -760,15 +758,15 @@ contains
    subroutine compute_forces(p)
      type(particle_type), dimension(:), intent(in out) :: p !particle_array
 
-     integer :: i, j, n
+     integer :: i, j, k
 
-     n = size(p)
-     do i = 1, n - 1
-       !if (i == 100) write(*,*) "nb of neighbors: ", p(1)%nb_of_neighbors, &
-      !                          size(p(1)%neighbor_list)
-       do j = i + 1, n!p(i)%nb_of_neighbors
-         call compute_force_between_particles(p(i), p(j))
-       end do
+     do i = 1, size(p)
+       if (p(i)%nb_of_neighbors > 0) then
+         do j = 1, p(i)%nb_of_neighbors
+           k = p(i)%neighbor_list(j)
+           call compute_force_between_particles(p(i), p(k))
+         end do
+       end if
      end do
 
    end subroutine compute_forces
@@ -790,9 +788,6 @@ contains
      r = norm2(r_ij)
 
      if (r < r_cut) then
-       ! compute epsilon for two particles
-       !r_min = half * (p1%r_min, p2%r_min)
-       !epsilon_value = sqrt(p1%epsilon * p2%epsilon)
        ! FORCE FOR TRUNCATED LENARD-JONES POTENTIAL
        s = (r_min / r)**6
        F_rij = (s / (r * r)) * (one - s)
