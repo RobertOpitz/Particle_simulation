@@ -148,20 +148,18 @@ contains
      type(particle_array_type), intent(in out) :: pa ! particle_array
 
      integer :: i, j, m, n
-
+     
+     ! loop ober all active particle in particle array
      do m = 1, size(pa%active_particles)
        i = pa%active_particles(m)
-       associate(p1 => pa%particles(i)) ! this particle
-         if (p1%nb_of_neighbors > 0) then
-           ! loop neighbor list of p1
-           do n = 1, p1%nb_of_neighbors
-             j = p1%neighbor_list(n)
-             associate(p2 => pa%particles(j)) ! a neighbor particle
-               call compute_force_between_particles(p1, p2)
-             end associate
-           end do
-         end if
-       end associate
+       if (pa%particles(i)%nb_of_neighbors > 0) then
+         ! loop neighbor list of ith particle
+         do n = 1, pa%particles(i)%nb_of_neighbors
+           j = pa%particles(i)%neighbor_list(n)
+           call compute_force_between_particles(pa%particles(i), &
+                                                pa%particles(j))
+         end do
+       end if
     end do
 
    end subroutine compute_forces
