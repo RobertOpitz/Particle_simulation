@@ -224,10 +224,11 @@ contains
          p%location = p%location + dx
          p%displacement = p%displacement + dx
 
-         ! GET MAX DISPLACEMENT OF PARTICLE
+         ! COMPUTE AMOUNT OF DISPLACEMENT OF PARTICLE
          dr = norm2(p%displacement)
        end associate
 
+       ! GET MAX DISPLACEMENT OF PARTICLE
        if (dr > dr_max_first) then
           dr_max_second = dr_max_first
           dr_max_first = dr
