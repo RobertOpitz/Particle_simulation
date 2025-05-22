@@ -2,7 +2,7 @@ SHELL=/bin/zsh
 
 .SUFFIXES:
 FC=gfortran
-CFLAGS=-Ofast
+CFLAGS=-Ofast -fopenmp
 SRC=fortran_src
 OBJ=Obj_folder
 
@@ -17,7 +17,7 @@ simu: main.o aux_mod.o stoermer_verlet.o particle_management.o
 	$(FC) $(CFLAGS) -o simu $(OBJ)/main.o $(OBJ)/aux_mod.o $(OBJ)/stver_mod.o $(OBJ)/part_manag.o
 
 main.o: $(SRC)/program_particle_simulation.f08 aux_mod.o stoermer_verlet.o particle_management.o 
-	$(FC) $(CFLAGS) -I$(OBJ) -c $(SRC)/program_particle_simulation.f08 -o $(OBJ)/main.o
+	$(FC) $(CFLAGS) -I$(OBJ) -c $(SRC)/program_particle_simulation_openmp.f08 -o $(OBJ)/main.o
   
 particle_management.o: aux_mod.o stoermer_verlet.o
 	$(FC) $(CFLAGS) -J$(OBJ) -I$(OBJ) -c $(SRC)/module_particle_management.f08 -o $(OBJ)/part_manag.o
