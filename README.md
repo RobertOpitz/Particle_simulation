@@ -1,8 +1,15 @@
-# Particle_simulation
-My results for the numerical simulation of molecular dynamics.
+# Particle simulation
 
-Compile e.g. as *gfortran -Ofast -o simu particle_simulation_04.f08*
+Complation with `make`.
 
-Run simulation: *./simu <environment_file> <particle_file> <result_file>*
+Run with:
 
-Show results: *python play_simulation.py --input <result_file>*
+```
+./simu environment_file.dat particle_files/big_body_test.dat test.output
+```
+
+Play results with:
+
+```
+python python_src/play_simulation.py -i test.output
+```
