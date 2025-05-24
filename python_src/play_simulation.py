@@ -148,7 +148,7 @@ def main(display,data):
 
 
 
-display = (800,600)
-data = get_data(args["input"], display)
-
-main(display,data)
+if __name__ == "__main__":
+    display = (800,600)
+    data = get_data(args["input"], display)
+    main(display,data)
