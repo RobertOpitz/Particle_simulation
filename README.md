@@ -1,6 +1,6 @@
 # Particle simulation
 
-Complation with `make`.
+Compilation with `make`. Needs `gfortran`(i used the one from `gcc 14.2` complier collection).
 
 Run with:
 
