@@ -16,7 +16,7 @@ dir_guard=mkdir -p $(OBJ)
 simu: main.o aux_mod.o stoermer_verlet.o particle_management.o
 	$(FC) $(CFLAGS) -o simu $(OBJ)/main.o $(OBJ)/aux_mod.o $(OBJ)/stver_mod.o $(OBJ)/part_manag.o
 
-main.o: $(SRC)/program_particle_simulation.f08 aux_mod.o stoermer_verlet.o particle_management.o 
+main.o: $(SRC)/program_particle_simulation_openmp.f08 aux_mod.o stoermer_verlet.o particle_management.o 
 	$(FC) $(CFLAGS) -I$(OBJ) -c $(SRC)/program_particle_simulation_openmp.f08 -o $(OBJ)/main.o
   
 particle_management.o: aux_mod.o stoermer_verlet.o
@@ -28,7 +28,7 @@ aux_mod.o: $(SRC)/module_auxiliary_routines.f08
 
 stoermer_verlet.o: $(SRC)/module_stoermer_verlet_method.f08
 	$(dir_guard)
-	$(FC) $(CFLAGS) -J$(OBJ) -c $(SRC)/module_stoermer_verlet_method.f08 -o $(OBJ)/stver_mod.o
+	$(FC) $(CFLAGS) -J$(OBJ) -I$(OBJ) -c $(SRC)/module_stoermer_verlet_method.f08 -o $(OBJ)/stver_mod.o
 
 clean:
 	rm -r $(OBJ)
