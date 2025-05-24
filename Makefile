@@ -6,11 +6,6 @@ CFLAGS=-Ofast -fopenmp
 SRC=fortran_src
 OBJ=Obj_folder
 
-#all: simu main.o particle_management.o aux_mod.o stoermer_verlet.o
-#	mkdir -p $(OBJ)
-#
-#.PHONY: all
-
 dir_guard=mkdir -p $(OBJ)
 
 simu: main.o aux_mod.o stoermer_verlet.o particle_management.o
