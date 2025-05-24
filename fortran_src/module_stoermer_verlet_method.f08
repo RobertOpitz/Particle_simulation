@@ -84,20 +84,18 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine compute_forces(particles, pindex)
+  pure subroutine compute_forces(particles, pindex)
     type(particle_type), dimension(:), intent(in out):: particles
     integer, dimension(2), intent(in) :: pindex
 
     integer :: i, j, n
 
-    particle_loop: do i = pindex(1), pindex(2)!1, size(particles)
-      !write(*,*) "i=", i
+    particle_loop: do i = pindex(1), pindex(2)
       if (particles(i)%is_active .and. particles(i)%nb_of_neighbors > 0) then
         neighbor_loop: do n = 1, particles(i)%nb_of_neighbors
           j = particles(i)%neighbor_list(n)
-          !write(*,*) "j=",j
-          call compute_force_between_particles(particles(i), &
-                                               particles(j))
+          call compute_force_between_two_particles(particles(i), &
+                                                   particles(j))
         end do neighbor_loop
       end if
     end do particle_loop
@@ -106,8 +104,7 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-   !pure 
-   subroutine compute_force_between_particles(particle_i, particle_j)
+  pure subroutine compute_force_between_two_particles(particle_i, particle_j)
      type(particle_type), intent(in out) :: particle_i, particle_j
 
      real(rt), dimension(3) :: r_ij
@@ -115,8 +112,6 @@ contains
      real(rt) :: r
      real(rt) :: s
      real(rt) :: F_rij
-
-     !integer :: i
 
      ! Direction Vector (Richtungsvektor)
      r_ij = particle_i%location - particle_j%location
@@ -130,14 +125,8 @@ contains
        ! TRUNCATED FORCE
        force = r_ij * twelve * epsilon_value * (F_rij - F_rcut)
        ! add forces
-       !!$omp critical
        particle_i%force_new = particle_i%force_new - force
        particle_j%force_new = particle_j%force_new + force
-       !!$omp end critical
-       !do i = 1, 3
-       ! !$omp atomic update
-       ! particle_j%force_new(i) = particle_j%force_new(i) + force(i)
-       !end do
      end if
 
    end subroutine compute_force_between_particles
@@ -195,41 +184,7 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  ! function need_to_update_neighbor_list(particles) result(displacement_flag)
-  !   type(particle_type), dimension(:), intent(in) :: particles
-  !   logical :: displacement_flag
-  
-  !   real(rt) :: dr, dr_max_first, dr_max_second
-  !   integer :: i
-  
-  !   dr_max_first  = zero
-  !   dr_max_second = zero
-
-  !   displacement_flag = .false.
-
-  !   do i = 1, size(particles)
-
-  !     ! GET MAX DISPLACEMENT OF PARTICLE
-  !     dr = norm2(particles(i)%displacement)
-  !     if (dr > dr_max_first) then
-  !        dr_max_second = dr_max_first
-  !        dr_max_first  = dr
-  !     else if (dr > dr_max_second) then
-  !        dr_max_second = dr
-  !     end if
-
-  !     if (dr_max_first + dr_max_second > dr_max_tolerable) then
-  !       displacement_flag = .true.
-  !       exit
-  !     end if
-
-  !   end do
-    
-  ! end function need_to_update_neighbor_list
-
-  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-  subroutine compute_velocities(particles, pindex)
+  pure subroutine compute_velocities(particles, pindex)
     type(particle_type), dimension(:), intent(in out) :: particles
     integer, dimension(2), intent(in) :: pindex
 

@@ -34,15 +34,15 @@ contains
     type(particle_type), dimension(:), intent(in out) :: particles
 
     ! create cell_space space, and ill it with the particle_numbers
-    write(*,*) "[INFO] initialize cell space"
+    write(*,'(1x,a)') "[INFO] initialize cell space"
     cell_space = initialze_cell_space(particles)
 
     ! update neighbor list for each particle in particle_array by using
     ! the cell_space space
-    write(*,*) "[INFO] initialize neighbor lists"
+    write(*,'(1x,a)') "[INFO] initialize neighbor lists"
     call update_neighbor_list(particles, cell_space)
 
-    write(*,*) "[INFO] initialize active particles"
+    write(*,'(1x,a)') "[INFO] initialize active particles"
     call update_active_particles(pack(cell_space, .true.), particles)
 
   end subroutine initialize_neighbor_lists
@@ -143,22 +143,22 @@ contains
 
      cell_loop: do ci = 1, size(cells)
 
-        p1 => cells(ci)%first_number
-        p1_loop: do while(associated(p1))
+      p1 => cells(ci)%first_number
+      p1_loop: do while(associated(p1))
 
-          ! RESET DISPLACEMENT AND NUMBER OF NEIGHBORS
-          particle_array(p1%i)%displacement    = zero
-          particle_array(p1%i)%nb_of_neighbors = 0
+        ! RESET DISPLACEMENT AND NUMBER OF NEIGHBORS
+        particle_array(p1%i)%displacement    = zero
+        particle_array(p1%i)%nb_of_neighbors = 0
+        
+        p2 => p1%next_number
+        p2_loop: do while(associated(p2))
+          call add_neighbor_particle(particle_array(p1%i), &
+                                     particle_array(p2%i), &
+                                     p2%i)
+          p2 => p2%next_number
+        end do p2_loop
 
-          p2 => p1%next_number
-          p2_loop: do while(associated(p2))
-            call add_neighbor_particle(particle_array(p1%i), &
-                                       particle_array(p2%i), &
-                                       p2%i)
-            p2 => p2%next_number
-          end do p2_loop
-
-          p1 => p1%next_number
+        p1 => p1%next_number
       end do p1_loop
 
     end do cell_loop
@@ -448,8 +448,6 @@ contains
                  if (associated(previous_particle)) then
                    ! Particle has predecessor and successor
                    previous_particle%next_number => particle%next_number
-                   !call entry_in_new_list(particle, new_cell, &
-                  !                        particle_buffer, linked_cells)
                    call entry_in_new_list(particle, new_cell, linked_cells)
                    particle => previous_particle%next_number
                  else
