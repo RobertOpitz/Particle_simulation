@@ -129,7 +129,7 @@ contains
        particle_j%force_new = particle_j%force_new + force
      end if
 
-   end subroutine compute_force_between_particles
+   end subroutine compute_force_between_two_particles
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
