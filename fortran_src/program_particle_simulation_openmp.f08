@@ -254,7 +254,7 @@ contains
         exit ! end of file
       else if (istat > 0) then
         ! read error
-        call stop_program("Could not entry from particle file '"//trim(particle_file)//"' with message: "//trim(failure_msg), istat)
+        call stop_program("Could not read entry from particle file '"//trim(particle_file)//"' with message: "//trim(failure_msg), istat)
       end if
       ! add new particle
       n = n + 1
