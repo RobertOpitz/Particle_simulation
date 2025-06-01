@@ -5,7 +5,7 @@ Compilation with `make` (uses `zsh`). Needs `gfortran`(i used the one from `gcc 
 Run with:
 
 ```
-./simu environment_file.dat particle_files/test_particles.dat test.output
+./simu environment_params.nml particle_files/test_particles.dat test.output
 ```
 
 Play results with:
