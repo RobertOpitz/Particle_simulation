@@ -21,7 +21,9 @@ program particle_simulation
   real(rt), dimension(3) :: length_of_area, length_of_cell
   real :: start_time
 
-  integer :: particle_file_unit, environment_file_unit, output_file_unit
+  integer :: output_file_unit
+  character(len = 132) :: environment_file, particle_file
+
   integer :: time_step, max_time_step, write_time_step
   integer :: i
   integer :: thread_id = 1, nb_of_threads
@@ -31,20 +33,20 @@ program particle_simulation
 
   ! get all the files from the command link
   write(*,'(1x,a)') "[INFO] get command arguments"
-  call get_command_arguments(environment_file_unit, &
-                             particle_file_unit, &
+  call get_command_arguments(environment_file, &
+                             particle_file, &
                              output_file_unit)
 
   ! read fixed values from environment_file
   write(*,'(1x,a)') "[INFO] get and set simulation parameters"
-  call get_and_set_parameters(environment_file_unit, &
+  call get_and_set_parameters(environment_file, &
                               length_of_area, length_of_cell, &
                               write_time_step, max_time_step, nb_of_threads)
 
   ! read particle file and file particle_array with particles and their id,
   ! mass, location, and initial velocity
   write(*,'(1x,a)') "[INFO] initialze particle array"
-  particles = initialize_particle_array(particle_file_unit)
+  particles = initialize_particle_array(particle_file)
 
   allocate(displacement_flag(nb_of_threads))
 
@@ -87,12 +89,12 @@ program particle_simulation
     ! cell_space for each particle needs to be updated
     !$omp barrier
     !$omp single
-    if (any(displacement_flag) .eqv. .true.) then
+    if ( any(displacement_flag) .eqv. .true. ) then
       call update_neighbor_list_and_cell_space(particles)
-      if (no_active_particles(particles)) then
-        write(*,'(1x,a)') "[INFO] no particles left in simulation area."
-        !exit time_integration
-      end if
+      !if (no_active_particles(particles)) then
+      !  write(*,'(1x,a)') "[INFO] no particles left in simulation area."
+      !  !exit time_integration
+      !end if
     end if
     !$omp end single
 
@@ -104,7 +106,7 @@ program particle_simulation
     call compute_velocities(particles, pindex)
 
     ! if it is time to write data, write data
-    if (mod(time_step, write_time_step) == 0) then
+    if ( mod(time_step, write_time_step) == 0 ) then
       !$omp barrier
       !$omp single
       write(*,'(1x,a,1x,g0)') "[INFO] write for time step:", time_step
@@ -127,16 +129,16 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine get_command_arguments(environment_file_unit, &
-                                   particle_file_unit, &
+  subroutine get_command_arguments(environment_file, &
+                                   particle_file, &
                                    output_file_unit)
      use iso_fortran_env, only: error_unit
-     integer, intent(out) :: environment_file_unit
-     integer, intent(out) :: particle_file_unit
+     character(len=*), intent(out) :: environment_file
+     character(len=*), intent(out) :: particle_file
      integer, intent(out) :: output_file_unit
 
-     character(len=132) :: program_name, name_of_parameter_file, &
-                           name_of_particle_file, name_of_output_file
+     character(len=132) :: program_name, &
+                           name_of_output_file
      integer :: stat
      real(rt), parameter :: dummy_value = zero
      integer :: length_of_record
@@ -151,25 +153,13 @@ contains
         call stop_program('Usage is: '//trim(program_name)// &
                           ' <parameter-file> <particle-file> <output-file>')
      else
-        call get_command_argument(1, name_of_parameter_file)
+        call get_command_argument(1, environment_file)
         ! Check file for existence
-        !call check_file(name_of_parameter_file)
-        open(newunit = environment_file_unit, file = name_of_parameter_file, &
-             status = "old", action = "read", access = "sequential", &
-             iostat = stat)
-        if (stat /= 0) then
-          call stop_program("[ERROR] Could not open parameter file.", stat)
-        end if
+        call check_file(environment_file)
 
-        call get_command_argument(2, name_of_particle_file)
+        call get_command_argument(2, particle_file)
         ! Check file for existence
-        !call check_file(name_of_particle_file)
-        open(newunit = particle_file_unit, file = name_of_particle_file, &
-             status = "old", action = "read", access = "sequential", &
-             iostat = stat)
-        if (stat /= 0) then
-          call stop_program("[ERROR] Could not open particle file.", stat)
-        end if
+        call check_file(particle_file)
 
         call get_command_argument(3, name_of_output_file)
         ! Check file for existence
@@ -179,7 +169,7 @@ contains
              status = "replace", access = "direct", action = "write", &
              form = "unformatted", recl = length_of_record, iostat = stat)
         if (stat /= 0) then
-          call stop_program("[ERROR] Could not open output file.", stat)
+          call stop_program("Could not open output file.", stat)
         end if
      end if
 
@@ -187,56 +177,86 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine get_and_set_parameters(efu, &
+  subroutine get_and_set_parameters(environment_file, &
                                     length_of_area, length_of_cell, &
                                     write_time_step, max_time_step, &
                                     nb_of_threads)
-     integer, intent(in) :: efu ! environment_file_unit
-     real, dimension(3), intent(out) :: length_of_area, length_of_cell
-     integer, intent(out) :: write_time_step, max_time_step
-     integer, intent(out) :: nb_of_threads
+    character(len = 132), intent(in) :: environment_file
+    real, dimension(3), intent(out) :: length_of_area, length_of_cell
+    integer, intent(out) :: write_time_step, max_time_step
+    integer, intent(out) :: nb_of_threads
+    
+    real(rt) :: epsilon_value, delta_t
+    real(rt) :: particle_mass, particle_radius, r_cut_factor
+    
+    real(rt) :: sigma, epsilon, delta, mass, r_cut
 
-     real(rt) :: epsilon_value, delta_t
-     real(rt) :: particle_mass, particle_radius, r_cut_factor
+    integer :: uef ! unit environment_file
+    integer :: istat
+    character(len=160) :: failure_msg
 
-     read(efu, *) nb_of_threads
-     read(efu, *) particle_radius, epsilon_value, particle_mass
-     read(efu, *) r_cut_factor
-     read(efu, *) length_of_area
-     write(*,*) length_of_area
-     read(efu, *) length_of_cell
-     read(efu, *) delta_t
-     read(efu, *) write_time_step, max_time_step
+    namelist /ENVIRONMENTPARAMS/ nb_of_threads, sigma, epsilon, mass, &
+                                 r_cut, length_of_area, length_of_cell, &
+                                 delta_t, write_time_step, max_time_step
 
-     call set_simulation_parameter(delta_t, length_of_area, length_of_cell, &
-                                   epsilon_value, particle_radius, &
-                                   particle_mass, r_cut_factor)
+    open(newunit = uef, file = trim(environment_file), &
+         status = 'old', action = 'read', iostat = istat, iomsg = failure_msg)
+    if ( istat /= 0 ) then
+      call stop_program( "OPEN failed for parameter-file '"//trim(environment_file)//"' with message: "//trim(failure_msg), istat )
+    end if
+    
+    !read the namelist "paramterlist"
+    read(unit = uef, nml = ENVIRONMENTPARAMS, iostat = istat, iomsg = failure_msg)
+    if ( istat /= 0 ) then
+      call stop_program( "READ failed for parameter-file '"//trim(environment_file)//"' with message: "//trim(failure_msg), istat )
+    end if
 
-     ! close environment file
-     close(efu)
+    close(unit = uef, iostat = istat, iomsg = failure_msg)
+    if ( istat /= 0 ) then
+      call stop_program( "CLOSE failed for parameter-file '"//trim(environment_file)//"' with message: "//trim(failure_msg), istat )
+    end if
+
+    call set_simulation_parameter(delta_t, length_of_area, length_of_cell, &
+                                  epsilon, sigma, mass, r_cut)
 
   end subroutine get_and_set_parameters
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  function initialize_particle_array(particle_file_unit) result(particles)
-    integer, intent(in) :: particle_file_unit
+  function initialize_particle_array(particle_file) result(particles)
+    character(len=*), intent(in) :: particle_file
     type(particle_type), dimension(:), allocatable :: particles !particle_array
 
+    integer :: upf !unit_particle_file
+    integer :: istat
+    character(len=132) :: failure_msg
+
+    integer :: id ! particle id
+    integer :: n ! number of particles
     type(particle_type), dimension(:), allocatable :: temp
-    integer :: id
-    integer :: n, istat
     real(rt), dimension(3) :: location, velocity
 
-    !open particle file unit
+    ! open particle file unit
+    open(newunit = upf, file = particle_file, &
+         status = "old", action = "read", access = "sequential", &
+         iostat = istat, iomsg = failure_msg)
+    if (istat /= 0) then
+      call stop_program("Could not open particle file '"//trim(particle_file)//"' with message: "//trim(failure_msg), istat)
+    end if
 
     ! write particle data from particle_file to particle_array
     n = 0
     allocate(temp(0))
     do
       ! read particle data
-      read(particle_file_unit, *, iostat = istat) id, location, velocity
-      if (istat /= 0) exit ! end of file or somthing is wrong
+      read(upf, *, iostat = istat, iomsg = failure_msg) id, location, velocity
+      if (istat < 0) then
+        exit ! end of file
+      else if (istat > 0) then
+        ! read error
+        call stop_program("Could not entry from particle file '"//trim(particle_file)//"' with message: "//trim(failure_msg), istat)
+      end if
+      ! add new particle
       n = n + 1
       if (n > size(temp)) call increase_particle_array(temp)
       ! write particle data to temp particle array
@@ -258,7 +278,10 @@ contains
     deallocate(temp)
 
     ! close particle file
-    close(particle_file_unit)
+    close(unit = upf, iostat = istat, iomsg = failure_msg)
+    if ( istat /= 0 ) then
+      call stop_program( "CLOSE failed for parameter-file '"//trim(environment_file)//"' with message: "//trim(failure_msg), istat )
+    end if
 
   end function initialize_particle_array
 

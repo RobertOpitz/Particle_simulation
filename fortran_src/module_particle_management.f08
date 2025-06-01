@@ -84,16 +84,23 @@ contains
 
           write(*,'(1x,a,1x,g0)') "[INFO] particle outside of simulation area:",&
                                   particles(i)%id
+
+          ! delete this particles
+          deallocate(new_particle_number, stat = istat)
+          if (istat /= 0) then
+            call stop_program("[ERROR] Failed deallocating particle. ", istat)
+          end if
       else
           ! Compute position of target cell of particle
           nc = ceiling(particles(i)%location / length_of_cell)
 
+          ! Initialize new_particle_number
           ! set the particle number
-          new_particle_number%i = i
-
           ! connect particle with target cell in cell_space
-          new_particle_number%next_number => &
-                                    cell_space(nc(1),nc(2),nc(3))%first_number
+          new_particle_number = particle_number(i, &
+                                     cell_space(nc(1),nc(2),nc(3))%first_number)
+
+          ! connected new new_particle_number to the linked list
           cell_space(nc(1),nc(2),nc(3))%first_number => new_particle_number
       end if
     end do
@@ -144,14 +151,16 @@ contains
      cell_loop: do ci = 1, size(cells)
 
       p1 => cells(ci)%first_number
-      p1_loop: do while(associated(p1))
+      p1_loop: do !while(associated(p1))
+        if (.not. associated(p1)) exit p1_loop
 
         ! RESET DISPLACEMENT AND NUMBER OF NEIGHBORS
         particle_array(p1%i)%displacement    = zero
         particle_array(p1%i)%nb_of_neighbors = 0
         
         p2 => p1%next_number
-        p2_loop: do while(associated(p2))
+        p2_loop: do !while(associated(p2))
+          if (.not. associated(p2)) exit p2_loop
           call add_neighbor_particle(particle_array(p1%i), &
                                      particle_array(p2%i), &
                                      p2%i)
@@ -343,10 +352,12 @@ contains
      if (.not. associated(other_cell%first_number)) return
 
      p1 => this_cell%first_number
-     p1_loop: do while(associated(p1))
+     p1_loop: do !while(associated(p1))
+        if (.not. associated(p1)) exit p1_loop
 
         p2 => other_cell%first_number
-        p2_loop: do while(associated(p2))
+        p2_loop: do !while(associated(p2))
+           if (.not. associated(p2)) exit p2_loop
            call add_neighbor_particle(particle_array(p1%i), &
                                       particle_array(p2%i), &
                                       p2%i)
@@ -531,7 +542,8 @@ contains
 
     do ci = 1, size(cell_space)
       number => cell_space(ci)%first_number
-      do while(associated(number))
+      do !while(associated(number))
+        if (.not. associated(number)) exit
         particles(number%i)%is_active = .true.
         number => number%next_number
       end do
