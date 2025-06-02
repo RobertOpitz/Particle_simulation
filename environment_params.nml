@@ -1,5 +1,5 @@
 &ENVIRONMENTPARAMS
- NB_OF_THREADS   = 1,
+ NB_OF_THREADS   = 3,
  SIGMA           = 1.0,
  EPSILON         = 1.0,
  MASS            = 1.0,
