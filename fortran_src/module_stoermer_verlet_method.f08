@@ -134,52 +134,56 @@ contains
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   function compute_locations(particles, pindex) result (displacement_flag)
-     type(particle_type), dimension(:), intent(in out) :: particles
-     integer, dimension(2), intent(in) :: pindex
-     logical :: displacement_flag
+    type(particle_type), dimension(:), intent(in out) :: particles
+    integer, dimension(2), intent(in) :: pindex
+    logical :: displacement_flag
+    
+    real(rt), dimension(3) :: dx
+    real(rt) :: dr, dr_max, dr_max_first, dr_max_second
+    integer :: i
+    
+    dr_max_first  = zero
+    dr_max_second = zero
+    
+    do i = pindex(1), pindex(2)
+    
+      associate ( p => particles(i) )
+        if (.not. p%is_active) cycle
+      
+        ! INIT FORCE
+        ! the formerly new Force is now the old Force
+        p%force_old = p%force_new
+        ! Reset the new Force to dummy value
+        p%force_new = zero !outer_force
+        
+        ! COMPUTE LOCATION
+        dx = delta_t * (p%velocity + time_mass_factor * p%force_old)
+        p%location     = p%location + dx
+        p%displacement = p%displacement + dx
+        
+        ! GET MAX DISPLACEMENT OF PARTICLE
+        dr = norm2(p%displacement)
+      end associate 
+      
+      if (dr > dr_max_first) then
+        dr_max_second = dr_max_first
+        dr_max_first  = dr
+      else if (dr > dr_max_second) then
+        dr_max_second = dr
+      end if
 
-     real(rt), dimension(3) :: dx
-     real(rt) :: dr, dr_max, dr_max_first, dr_max_second
-     integer :: i
+    end do
+    
+    dr_max = dr_max_first + dr_max_second
+    
+    ! if the maximal displacement becomes to large, 
+    ! set flag for updating the neighbor list
+    if (dr_max > dr_max_tolerable) then
+      displacement_flag = .true.
+    else
+      displacement_flag = .false.
+    end if
 
-     dr_max_first  = zero
-     dr_max_second = zero
-
-     do i = pindex(1), pindex(2)
-       if (.not. particles(i)%is_active) cycle
-
-       ! INIT FORCE
-       ! the formerly new Force is now the old Force
-       particles(i)%force_old = particles(i)%force_new
-       ! Reset the new Force to dummy value
-       particles(i)%force_new = zero !outer_force
-
-       ! COMPUTE LOCATION
-       dx = delta_t * (particles(i)%velocity + time_mass_factor * particles(i)%force_old)
-       particles(i)%location     = particles(i)%location + dx
-       particles(i)%displacement = particles(i)%displacement + dx
-
-       ! GET MAX DISPLACEMENT OF PARTICLE
-       dr = norm2(particles(i)%displacement)
-       if (dr > dr_max_first) then
-          dr_max_second = dr_max_first
-          dr_max_first  = dr
-       else if (dr > dr_max_second) then
-          dr_max_second = dr
-       end if
-     end do
-
-     dr_max = dr_max_first + dr_max_second
-
-     ! if the maximal displacement becomes to large, 
-     ! set flag for updating the neighbor list
-     if (dr_max > dr_max_tolerable) then
-       displacement_flag = .true.
-     else
-       displacement_flag = .false.
-     end if
-
-  !end subroutine compute_locations
   end function compute_locations
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -191,10 +195,16 @@ contains
     integer :: i
 
     do i = pindex(1), pindex(2)
-      if (particles(i)%is_active) then
-        particles(i)%velocity = particles(i)%velocity + time_mass_factor * &
-                               (particles(i)%force_new + particles(i)%force_old)
-      end if
+      associate ( p => particles(i) )
+        if (p%is_active) then
+          p%velocity = p%velocity + &
+                       time_mass_factor * (p%force_new + p%force_old)
+        end if
+      end associate
+      !if (particles(i)%is_active) then
+       ! particles(i)%velocity = particles(i)%velocity + time_mass_factor * &
+       !                        (particles(i)%force_new + particles(i)%force_old)
+      !end if
     end do
 
   end subroutine compute_velocities
