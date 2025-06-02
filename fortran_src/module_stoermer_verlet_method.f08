@@ -201,10 +201,6 @@ contains
                        time_mass_factor * (p%force_new + p%force_old)
         end if
       end associate
-      !if (particles(i)%is_active) then
-       ! particles(i)%velocity = particles(i)%velocity + time_mass_factor * &
-       !                        (particles(i)%force_new + particles(i)%force_old)
-      !end if
     end do
 
   end subroutine compute_velocities
